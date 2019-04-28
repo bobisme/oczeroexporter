@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
@@ -15,12 +16,25 @@ var reZero = regexp.MustCompile(`^0+$`)
 
 // Exporter is a stats and trace exporter that logs
 // the exported data using zerolog.
-type Exporter struct{}
+type Exporter struct {
+	eventFn func() *zerolog.Event
+}
+
+func New(eventFn func() *zerolog.Event) *Exporter {
+	return &Exporter{eventFn}
+}
+
+func (e *Exporter) log() *zerolog.Event {
+	if e.eventFn == nil {
+		return log.Debug()
+	}
+	return e.eventFn()
+}
 
 // ExportView logs the view data.
 func (e *Exporter) ExportView(vd *view.Data) {
 	for _, row := range vd.Rows {
-		l := log.Info()
+		l := e.log()
 		l = l.Str("name", vd.View.Name)
 		l = l.Time("end", vd.End)
 
@@ -55,7 +69,7 @@ func (e *Exporter) ExportSpan(vd *trace.SpanData) {
 	traceID := hex.EncodeToString(vd.SpanContext.TraceID[:])
 	spanID := hex.EncodeToString(vd.SpanContext.SpanID[:])
 	parentSpanID := hex.EncodeToString(vd.ParentSpanID[:])
-	l := log.Info()
+	l := e.log()
 	l = l.Str("traceId", traceID).Str("spanId", spanID)
 	if !reZero.MatchString(parentSpanID) {
 		l = l.Str("parentSpanId", parentSpanID)

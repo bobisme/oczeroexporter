@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -51,9 +50,8 @@ func expectNotEq(t *testing.T, a interface{}, b interface{}) {
 func TestMetrics(t *testing.T) {
 	b := make([]byte, 0)
 	buf := bytes.NewBuffer(b)
-	log.Logger = zerolog.New(buf)
-
-	e := &Exporter{}
+	logger := zerolog.New(buf)
+	e := New(logger.Debug)
 	view.Register(NothingView)
 	view.RegisterExporter(e)
 	view.SetReportingPeriod(100 * time.Millisecond)
@@ -82,7 +80,7 @@ func TestMetrics(t *testing.T) {
 	err = json.Unmarshal(line, &logged)
 	expectNo(t, err)
 
-	expected.Level = "info"
+	expected.Level = "debug"
 	expected.Message = "metric"
 	expected.Name = "test/nothing_view"
 	expected.Count = 2.0
@@ -94,9 +92,8 @@ func TestMetrics(t *testing.T) {
 func TestTrace(t *testing.T) {
 	b := make([]byte, 0)
 	buf := bytes.NewBuffer(b)
-	log.Logger = zerolog.New(buf)
-
-	e := &Exporter{}
+	logger := zerolog.New(buf)
+	e := New(logger.Debug)
 	trace.RegisterExporter(e)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
@@ -115,7 +112,7 @@ func TestTrace(t *testing.T) {
 	logged := make(map[string]interface{})
 	err := json.Unmarshal(buf.Bytes(), &logged)
 	expectNo(t, err)
-	expectEq(t, logged["level"], "info")
+	expectEq(t, logged["level"], "debug")
 	expectEq(t, logged["message"], "trace")
 	expectEq(t, logged["span"], "/foo")
 	expectEq(t, len(logged["traceId"].(string)), 32)
